@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest.json">
+<title>COCOROG 現場見積り</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f4f6;color:#111;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
+header{background:#111;color:#fff;padding:18px 16px;position:sticky;top:0;z-index:10}
+header h1{font-size:20px;margin:0 0 4px}
+header p{font-size:12px;margin:0;opacity:.75}
+main{max-width:720px;margin:auto;padding:12px 12px 40px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 1px 5px rgba(0,0,0,.08)}
+h2{font-size:16px;margin:0 0 12px;border-left:4px solid #111;padding-left:8px}
+label{display:block;font-size:13px;font-weight:700;margin:12px 0 5px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font-size:16px;background:#fff}
+textarea{min-height:72px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.item{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:10px;background:#fafafa}
+.item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.item-head strong{font-size:14px}
+.small-btn{border:0;background:#e5e7eb;border-radius:8px;padding:7px 10px}
+.primary{width:100%;border:0;background:#111;color:#fff;padding:14px;border-radius:10px;font-size:16px;font-weight:700}
+.secondary{width:100%;border:1px solid #111;background:#fff;color:#111;padding:13px;border-radius:10px;font-size:15px;font-weight:700}
+.danger{background:#fee2e2;color:#991b1b;border:0}
+.total-box{background:#111;color:#fff;border-radius:14px;padding:18px;text-align:right}
+.total-box .label{font-size:12px;opacity:.75}
+.total{font-size:30px;font-weight:800}
+.row{display:flex;justify-content:space-between;gap:10px;margin:8px 0;font-size:14px}
+.row strong{font-size:15px}
+.note{font-size:12px;color:#6b7280;line-height:1.6}
+.internal{border:1px dashed #aaa;background:#fafafa}
+.hidden-print{display:block}
+.quote-no{font-size:12px;color:#6b7280}
+@media(max-width:480px){.grid3{grid-template-columns:1fr 1fr}.grid3 > :last-child{grid-column:1/-1}}
+@media print{
+  body{background:#fff}
+  header{position:static;color:#000;background:#fff;border-bottom:2px solid #111}
+  main{max-width:none;padding:0}
+  .no-print,.hidden-print,.internal{display:none!important}
+  .card{box-shadow:none;border:0;padding:8px 0}
+  input,select,textarea{border:0;padding:3px;background:#fff}
+  .item{border:1px solid #ccc;background:#fff}
+  .total-box{background:#fff;color:#000;border:2px solid #111}
+  .total{font-size:24px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>COCOROG 現場見積り</h1>
+  <p>伐採・草刈り・剪定・枝払い・抜根・その他</p>
+</header>
+
+<main>
+  <section class="card">
+    <div class="quote-no">見積番号：<span id="quoteNo"></span></div>
+    <div class="grid">
+      <div>
+        <label>見積日</label>
+        <input id="quoteDate" type="date">
+      </div>
+      <div>
+        <label>有効期限</label>
+        <input id="validDate" type="date">
+      </div>
+    </div>
+    <label>お客様名</label>
+    <input id="customer" placeholder="例：山田 太郎 様">
+    <label>作業場所</label>
+    <input id="address" placeholder="例：下諏訪町〇〇">
+    <label>電話番号</label>
+    <input id="phone" inputmode="tel" placeholder="例：090-0000-0000">
+  </section>
+
+  <section class="card">
+    <h2>作業内容</h2>
+    <div id="items"></div>
+    <button class="secondary no-print" onclick="addItem()">＋ 作業項目を追加</button>
+    <p class="note">単価はCOCOROGで決めた金額を入力してください。初期値は0円です。</p>
+  </section>
+
+  <section class="card">
+    <h2>諸経費</h2>
+    <div class="grid">
+      <div>
+        <label>出張・運搬費（税込）</label>
+        <input id="travel" type="number" inputmode="decimal" value="0" min="0" oninput="calc()">
+      </div>
+      <div>
+        <label>処分費（税込）</label>
+        <input id="disposal" type="number" inputmode="decimal" value="0" min="0" oninput="calc()">
+      </div>
+      <div>
+        <label>値引き（税込）</label>
+        <input id="discount" type="number" inputmode="decimal" value="0" min="0" oninput="calc()">
+      </div>
+      <div>
+        <label>消費税率</label>
+        <select id="taxRate" onchange="calc()">
+          <option value="10">10%</option>
+          <option value="8">8%</option>
+          <option value="0">0%</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>お客様への見積り</h2>
+    <div class="row"><span>作業小計</span><strong id="subtotal">¥0</strong></div>
+    <div class="row"><span>出張・運搬費</span><strong id="travelOut">¥0</strong></div>
+    <div class="row"><span>処分費</span><strong id="disposalOut">¥0</strong></div>
+    <div class="row"><span>値引き</span><strong id="discountOut">- ¥0</strong></div>
+    <div class="row"><span>消費税</span><strong id="taxOut">¥0</strong></div>
+    <div class="total-box">
+      <div class="label">お見積金額（税込）</div>
+      <div class="total" id="total">¥0</div>
+    </div>
+  </section>
+
+  <section class="card internal">
+    <h2>社内用：原価・粗利</h2>
+    <label>作業者への支払額（税込）</label>
+    <input id="workerCost" type="number" inputmode="decimal" value="0" min="0" oninput="calc()">
+    <label>その他原価（税込）</label>
+    <input id="otherCost" type="number" inputmode="decimal" value="0" min="0" oninput="calc()">
+    <div class="row"><span>原価合計</span><strong id="costTotal">¥0</strong></div>
+    <div class="row"><span>参考粗利（見積税込－原価）</span><strong id="profit">¥0</strong></div>
+    <div class="row"><span>参考粗利率</span><strong id="profitRate">0.0%</strong></div>
+    <p class="note">※これは管理用の参考値です。会計上の売上・利益とは一致しない場合があります。</p>
+  </section>
+
+  <section class="card">
+    <h2>備考</h2>
+    <textarea id="memo" placeholder="作業条件、処分内容、追加作業の扱いなど"></textarea>
+  </section>
+
+  <section class="card no-print">
+    <button class="primary" onclick="saveData()">この見積りを端末に保存</button>
+    <button class="secondary" onclick="window.print()">見積書を印刷・PDF保存</button>
+    <button class="secondary danger" onclick="resetForm()">新しい見積りを作成</button>
+  </section>
+</main>
+
+<script>
+const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
+const $ = id => document.getElementById(id);
+
+function today(){
+  const d=new Date();
+  return d.toISOString().slice(0,10);
+}
+function addDays(dateStr, days){
+  const d=new Date(dateStr+"T00:00:00");
+  d.setDate(d.getDate()+days);
+  return d.toISOString().slice(0,10);
+}
+function makeQuoteNo(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  const r=String(Math.floor(Math.random()*900)+100);
+  return `CO-${y}${m}${day}-${r}`;
+}
+
+function addItem(data={}){
+  const div=document.createElement("div");
+  div.className="item";
+  div.innerHTML=`
+    <div class="item-head">
+      <strong>作業項目</strong>
+      <button class="small-btn no-print" onclick="this.closest('.item').remove();calc()">削除</button>
+    </div>
+    <label>作業種別</label>
+    <select class="work">
+      <option ${data.work==="伐採"?"selected":""}>伐採</option>
+      <option ${data.work==="草刈り"?"selected":""}>草刈り</option>
+      <option ${data.work==="剪定"?"selected":""}>剪定</option>
+      <option ${data.work==="枝払い"?"selected":""}>枝払い</option>
+      <option ${data.work==="抜根"?"selected":""}>抜根</option>
+      <option ${data.work==="その他"?"selected":""}>その他</option>
+    </select>
+    <label>内容・対象</label>
+    <input class="detail" placeholder="例：立木3本、高さ5m" value="${escapeHtml(data.detail||"")}">
+    <div class="grid3">
+      <div>
+        <label>数量</label>
+        <input class="qty" type="number" inputmode="decimal" min="0" value="${data.qty ?? 1}">
+      </div>
+      <div>
+        <label>単位</label>
+        <select class="unit">
+          <option ${data.unit==="式"?"selected":""}>式</option>
+          <option ${data.unit==="本"?"selected":""}>本</option>
+          <option ${data.unit==="㎡"?"selected":""}>㎡</option>
+          <option ${data.unit==="m"?"selected":""}>m</option>
+          <option ${data.unit==="時間"?"selected":""}>時間</option>
+          <option ${data.unit==="日"?"selected":""}>日</option>
+        </select>
+      </div>
+      <div>
+        <label>単価（税込）</label>
+        <input class="price" type="number" inputmode="decimal" min="0" value="${data.price ?? 0}">
+      </div>
+    </div>`;
+  div.querySelectorAll("input,select").forEach(e=>e.addEventListener("input",calc));
+  $("items").appendChild(div);
+  calc();
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+
+function calc(){
+  let subtotal=0;
+  document.querySelectorAll(".item").forEach(item=>{
+    const q=Number(item.querySelector(".qty").value)||0;
+    const p=Number(item.querySelector(".price").value)||0;
+    subtotal += q*p;
+  });
+  const travel=Number($("travel").value)||0;
+  const disposal=Number($("disposal").value)||0;
+  const discount=Number($("discount").value)||0;
+  const taxable=Math.max(0,subtotal+travel+disposal-discount);
+  const rate=Number($("taxRate").value)||0;
+  const tax=Math.round(taxable*rate/100);
+  const total=taxable+tax;
+
+  $("subtotal").textContent=yen(subtotal);
+  $("travelOut").textContent=yen(travel);
+  $("disposalOut").textContent=yen(disposal);
+  $("discountOut").textContent="- "+yen(discount);
+  $("taxOut").textContent=yen(tax);
+  $("total").textContent=yen(total);
+
+  const worker=Number($("workerCost").value)||0;
+  const other=Number($("otherCost").value)||0;
+  const costs=worker+other;
+  const profit=total-costs;
+  $("costTotal").textContent=yen(costs);
+  $("profit").textContent=yen(profit);
+  $("profitRate").textContent=(total>0?(profit/total*100):0).toFixed(1)+"%";
+}
+
+function collect(){
+  return {
+    quoteNo:$("quoteNo").textContent,
+    quoteDate:$("quoteDate").value,
+    validDate:$("validDate").value,
+    customer:$("customer").value,
+    address:$("address").value,
+    phone:$("phone").value,
+    items:[...document.querySelectorAll(".item")].map(item=>({
+      work:item.querySelector(".work").value,
+      detail:item.querySelector(".detail").value,
+      qty:item.querySelector(".qty").value,
+      unit:item.querySelector(".unit").value,
+      price:item.querySelector(".price").value
+    })),
+    travel:$("travel").value,
+    disposal:$("disposal").value,
+    discount:$("discount").value,
+    taxRate:$("taxRate").value,
+    workerCost:$("workerCost").value,
+    otherCost:$("otherCost").value,
+    memo:$("memo").value
+  };
+}
+
+function saveData(){
+  localStorage.setItem("cocorog_mitsumori",JSON.stringify(collect()));
+  alert("この端末に保存しました。");
+}
+
+function loadData(){
+  const raw=localStorage.getItem("cocorog_mitsumori");
+  if(!raw){ addItem(); return; }
+  try{
+    const d=JSON.parse(raw);
+    $("quoteNo").textContent=d.quoteNo||makeQuoteNo();
+    $("quoteDate").value=d.quoteDate||today();
+    $("validDate").value=d.validDate||addDays(today(),30);
+    $("customer").value=d.customer||"";
+    $("address").value=d.address||"";
+    $("phone").value=d.phone||"";
+    $("travel").value=d.travel||0;
+    $("disposal").value=d.disposal||0;
+    $("discount").value=d.discount||0;
+    $("taxRate").value=d.taxRate??10;
+    $("workerCost").value=d.workerCost||0;
+    $("otherCost").value=d.otherCost||0;
+    $("memo").value=d.memo||"";
+    $("items").innerHTML="";
+    (d.items&&d.items.length?d.items:[{}]).forEach(addItem);
+    calc();
+  }catch(e){ addItem(); }
+}
+
+function resetForm(){
+  if(!confirm("現在の入力を消して、新しい見積りを作成しますか？")) return;
+  localStorage.removeItem("cocorog_mitsumori");
+  location.reload();
+}
+
+$("quoteDate").value=today();
+$("validDate").value=addDays(today(),30);
+$("quoteNo").textContent=makeQuoteNo();
+loadData();
+</script>
+</body>
+</html>
+
+{
+  "name": "COCOROG 現場見積り",
+  "short_name": "COCOROG見積り",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#111111",
+  "lang": "ja"
+}
+const CACHE="cocorog-mitsumori-v1";
+const FILES=["./","./index.html","./manifest.json"];
+self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
+self.addEventListener("fetch",e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
